@@ -8,8 +8,8 @@ import os
 
 app = FastAPI()
 
-ENDPOINT_ID = os.getenv("ENDPOINT_ID")
-MODEL_NAME = os.getenv("MODEL_NAME")
+ENDPOINT_ID = "pst10x7hvwoz2k"
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.1"
 BASE_URL = f'https://api.runpod.ai/v2/{ENDPOINT_ID}'
 
 def transform_request(openai_request):
@@ -19,8 +19,8 @@ def transform_request(openai_request):
     print(transformed_request)
     return transformed_request
 
-async def stream_data(run_url, headers, test_payload):
-    response = requests.post(run_url, headers=headers, data=json.dumps({"input": test_payload}))
+async def stream_data(run_url, headers, transformed_request):
+    response = requests.post(run_url, headers=headers, data=json.dumps({"input": transformed_request}))
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="Error initializing the stream")
 
@@ -36,8 +36,9 @@ async def stream_data(run_url, headers, test_payload):
                 yield chunk["output"]
         await asyncio.sleep(0.1)  
 
+
 @app.post("/v1/chat/completions")
-async def create_chat_completion(request: Request, background_tasks: BackgroundTasks):
+async def create_chat_or_completion(request: Request, background_tasks: BackgroundTasks):
     # Extract the RunPod API key from the request header
     runpod_api_key = request.headers.get('Authorization')
     if not runpod_api_key:
@@ -47,9 +48,13 @@ async def create_chat_completion(request: Request, background_tasks: BackgroundT
     transformed_request = transform_request(openai_request)
 
     headers = {'Authorization': runpod_api_key, 'Content-Type': 'application/json'}
-    run_url = BASE_URL + "/run"
-
-    return StreamingResponse(stream_data(run_url, headers, transformed_request))
+    
+    if openai_request.get("stream"):
+        run_url = BASE_URL + "/run"
+        return StreamingResponse(stream_data(run_url, headers, transformed_request))
+    else:
+        run_url = BASE_URL + "/runsync"
+        return JSONResponse(content=requests.post(run_url, headers=headers, data=json.dumps({"input": transformed_request})).json())
 
 @app.get("/v1/models")
 async def get_model():
