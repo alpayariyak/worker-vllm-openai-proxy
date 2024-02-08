@@ -50,11 +50,9 @@ async def create_chat_or_completion(request: Request, background_tasks: Backgrou
     headers = {'Authorization': runpod_api_key, 'Content-Type': 'application/json'}
     
     if openai_request.get("stream"):
-        run_url = BASE_URL + "/run"
-        return StreamingResponse(stream_data(run_url, headers, transformed_request))
+        return StreamingResponse(stream_data(BASE_URL + "/run", headers, transformed_request))
     else:
-        run_url = BASE_URL + "/runsync"
-        return JSONResponse(content=requests.post(run_url, headers=headers, data=json.dumps({"input": transformed_request})).json())
+        return JSONResponse(content=requests.post(BASE_URL + "/runsync", headers=headers, data=json.dumps({"input": transformed_request})).json())
 
 @app.get("/v1/models")
 async def get_model():
